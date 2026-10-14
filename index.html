@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>星度咖啡 · 交互原型</title>
+<style>
+  :root{
+    --coffee:#6F4E37; --coffee-deep:#4A2F20; --cream:#F6F0E7; --paper:#FFFDF9;
+    --accent:#C87941; --accent-deep:#A85E2E; --line:#E9E0D4; --muted:#9A8B7A;
+    --ok:#3E9E6E; --ink:#2B2118;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;}
+  body{
+    font-family:"PingFang SC","Microsoft YaHei",-apple-system,sans-serif;
+    background:#2C2622; color:var(--ink);
+    display:flex; align-items:center; justify-content:center; gap:28px;
+    min-height:100vh; padding:24px;
+  }
+  /* ===== 手机外框 ===== */
+  .phone{
+    position:relative; width:390px; height:820px; flex:none;
+    background:#000; border-radius:52px; padding:12px;
+    box-shadow:0 40px 90px rgba(0,0,0,.55), 0 0 0 2px #3a3430;
+  }
+  .screen-wrap{position:relative;width:100%;height:100%;border-radius:42px;overflow:hidden;background:var(--cream);}
+  .notch{position:absolute;top:14px;left:50%;transform:translateX(-50%);width:120px;height:30px;background:#000;border-radius:18px;z-index:60;}
+
+  /* ===== 屏幕与转场 ===== */
+  .screen{
+    position:absolute;inset:0;background:var(--cream);
+    transform:translateX(102%); transition:transform .38s cubic-bezier(.32,.72,.24,1);
+    overflow:hidden; display:flex; flex-direction:column;
+    pointer-events:none; z-index:1;
+  }
+  .screen.active{transform:none;pointer-events:auto;z-index:10;}
+  .screen.behind{transform:translateX(-28%) scale(.92);z-index:1;transition:transform .38s cubic-bezier(.32,.72,.24,1);}
+  .screen.init{transform:none;pointer-events:auto;z-index:10;}
+
+  .scroll{flex:1;overflow-y:auto;scrollbar-width:none;}
+  .scroll::-webkit-scrollbar{display:none;}
+  .pad{padding:0 18px;}
+
+  /* ===== 通用组件 ===== */
+  .statusbar{height:44px;flex:none;display:flex;align-items:flex-end;justify-content:space-between;padding:0 26px 6px;font-size:13px;font-weight:600;color:var(--ink);}
+  .statusbar .sb-r{display:flex;gap:5px;align-items:center;}
+  .btn-primary{
+    border:none;background:var(--coffee);color:#fff;font-size:16px;font-weight:600;
+    border-radius:26px;padding:15px;width:100%;cursor:pointer;transition:transform .12s, background .2s;
+  }
+  .btn-primary:active{transform:scale(.97);background:var(--coffee-deep);}
+  .chip{border:1px solid var(--line);background:#fff;color:var(--muted);border-radius:18px;padding:7px 16px;font-size:13px;cursor:pointer;transition:all .18s;flex:none;}
+  .chip.on{background:var(--coffee);border-color:var(--coffee);color:#fff;}
+
+  /* ===== 启动页 ===== */
+  #splash{align-items:center;justify-content:center;background:linear-gradient(160deg,#5A3E2C,#2E1F15);color:#fff;}
+  .splash-logo{width:96px;height:96px;border-radius:28px;background:rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center;margin-bottom:22px;animation:pop .7s cubic-bezier(.2,1.4,.4,1);}
+  @keyframes pop{from{transform:scale(.4);opacity:0;}to{transform:scale(1);opacity:1;}}
+  .splash-name{font-size:30px;font-weight:700;letter-spacing:4px;}
+  .splash-sub{margin-top:10px;font-size:13px;letter-spacing:6px;opacity:.65;}
+  .splash-hint{position:absolute;bottom:60px;font-size:12px;opacity:.5;}
+  .splash-bar{position:absolute;bottom:42px;width:90px;height:3px;border-radius:3px;background:rgba(255,255,255,.18);overflow:hidden;}
+  .splash-bar i{display:block;height:100%;width:40%;background:#fff;animation:load 1.4s ease-in-out infinite;border-radius:3px;}
+  @keyframes load{0%{transform:translateX(-120%);}100%{transform:translateX(320%);}}
+
+  /* ===== 首页 ===== */
+  .home-head{padding:8px 18px 14px;background:var(--cream);}
+  .loc{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:4px;}
+  .loc b{font-size:16px;color:var(--ink);display:block;margin-top:2px;}
+  .search{margin-top:12px;background:#fff;border:1px solid var(--line);border-radius:14px;padding:11px 14px;font-size:13px;color:var(--muted);display:flex;gap:8px;align-items:center;}
+  .banner{margin:2px 18px 0;border-radius:20px;padding:20px;color:#fff;position:relative;overflow:hidden;
+    background:linear-gradient(120deg,#7A5640,#4A2F20);}
+  .banner h3{font-size:19px;} .banner p{font-size:12px;opacity:.8;margin-top:6px;}
+  .banner .tag{margin-top:14px;display:inline-block;background:rgba(255,255,255,.18);border-radius:12px;padding:6px 12px;font-size:12px;}
+  .banner .bean{position:absolute;right:-18px;bottom:-22px;opacity:.25;}
+  .cats{display:flex;gap:10px;padding:18px 18px 6px;overflow-x:auto;scrollbar-width:none;}
+  .cats::-webkit-scrollbar{display:none;}
+  .sec-title{font-size:17px;font-weight:700;margin:14px 18px 10px;}
+  .p-list{padding:0 18px 110px;display:flex;flex-direction:column;gap:12px;}
+  .p-card{background:var(--paper);border:1px solid var(--line);border-radius:18px;padding:12px;display:flex;gap:14px;cursor:pointer;transition:transform .15s;}
+  .p-card:active{transform:scale(.98);}
+  .p-img{width:84px;height:84px;border-radius:14px;flex:none;display:flex;align-items:center;justify-content:center;}
+  .p-info{flex:1;min-width:0;}
+  .p-info h4{font-size:15px;}
+  .p-info .desc{font-size:11.5px;color:var(--muted);margin-top:4px;line-height:1.5;}
+  .p-bottom{display:flex;align-items:center;justify-content:space-between;margin-top:8px;}
+  .price{color:var(--accent-deep);font-weight:700;font-size:16px;}
+  .price small{font-size:11px;}
+  .add{width:30px;height:30px;border-radius:50%;border:none;background:var(--coffee);color:#fff;font-size:18px;cursor:pointer;line-height:1;}
+
+  /* ===== 详情页 ===== */
+  .detail-hero{height:268px;flex:none;display:flex;align-items:center;justify-content:center;position:relative;}
+  .back-btn{position:absolute;top:14px;left:18px;width:38px;height:38px;border-radius:50%;background:rgba(255,255,255,.85);border:none;font-size:17px;cursor:pointer;z-index:2;backdrop-filter:blur(4px);}
+  .detail-body{flex:1;background:var(--paper);border-radius:28px 28px 0 0;margin-top:-24px;position:relative;padding:22px 20px 110px;overflow-y:auto;scrollbar-width:none;}
+  .detail-body::-webkit-scrollbar{display:none;}
+  .detail-body h2{font-size:22px;}
+  .detail-body .d-sub{font-size:13px;color:var(--muted);margin-top:8px;line-height:1.6;}
+  .opt-block{margin-top:22px;}
+  .opt-block .ob-t{font-size:14px;font-weight:600;margin-bottom:10px;display:flex;justify-content:space-between;}
+  .opt-row{display:flex;gap:10px;flex-wrap:wrap;}
+  .opt{border:1.5px solid var(--line);background:#fff;border-radius:14px;padding:10px 18px;font-size:13px;cursor:pointer;transition:all .15s;}
+  .opt.on{border-color:var(--coffee);background:#F3EAE0;color:var(--coffee-deep);font-weight:600;}
+  .qty-row{display:flex;align-items:center;gap:16px;margin-top:24px;}
+  .qty-btn{width:34px;height:34px;border-radius:50%;border:1.5px solid var(--line);background:#fff;font-size:17px;cursor:pointer;}
+  .qty-num{font-size:18px;font-weight:600;min-width:26px;text-align:center;}
+  .detail-bar{position:absolute;left:0;right:0;bottom:0;background:#fff;border-top:1px solid var(--line);padding:14px 20px 26px;display:flex;align-items:center;gap:14px;z-index:20;}
+  .detail-bar .total{font-size:20px;font-weight:700;color:var(--accent-deep);}
+  .detail-bar button{flex:1;}
+
+  /* ===== 购物车 / 订单 / 我的 ===== */
+  .page-head{padding:10px 20px 14px;font-size:20px;font-weight:700;}
+  .cart-list{padding:0 18px 180px;display:flex;flex-direction:column;gap:10px;}
+  .cart-item{background:var(--paper);border:1px solid var(--line);border-radius:16px;padding:12px;display:flex;gap:12px;align-items:center;}
+  .ci-img{width:56px;height:56px;border-radius:12px;flex:none;display:flex;align-items:center;justify-content:center;font-size:24px;}
+  .ci-info{flex:1;min-width:0;}
+  .ci-info h5{font-size:14px;}
+  .ci-info .spec{font-size:11px;color:var(--muted);margin-top:3px;}
+  .stepper{display:flex;align-items:center;gap:10px;}
+  .stepper button{width:26px;height:26px;border-radius:50%;border:1px solid var(--line);background:#fff;cursor:pointer;font-size:14px;line-height:1;}
+  .stepper .n{min-width:18px;text-align:center;font-size:14px;font-weight:600;}
+  .empty{text-align:center;padding:110px 30px;color:var(--muted);font-size:14px;}
+  .empty .big{font-size:52px;margin-bottom:14px;}
+  .checkout-bar{position:absolute;left:0;right:0;bottom:0;background:#fff;border-top:1px solid var(--line);padding:14px 18px 28px;display:flex;align-items:center;gap:12px;z-index:20;}
+  .checkout-bar .sum{flex:1;}
+  .checkout-bar .sum .t{font-size:18px;font-weight:700;color:var(--accent-deep);}
+  .checkout-bar .sum .s{font-size:11px;color:var(--muted);}
+  .checkout-bar button{width:140px;}
+
+  .order-card{background:var(--paper);border:1px solid var(--line);border-radius:16px;margin:0 18px 12px;padding:14px;}
+  .oc-head{display:flex;justify-content:space-between;font-size:12px;}
+  .oc-status{color:var(--ok);font-weight:600;}
+  .oc-status.making{color:var(--accent-deep);}
+  .oc-body{display:flex;gap:10px;margin-top:12px;align-items:center;}
+  .oc-body .thumb{width:46px;height:46px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px;}
+  .oc-body h5{font-size:13.5px;} .oc-body p{font-size:11px;color:var(--muted);margin-top:3px;}
+  .oc-foot{display:flex;justify-content:space-between;align-items:center;margin-top:12px;font-size:13px;}
+  .oc-foot .again{border:1px solid var(--coffee);color:var(--coffee);background:#fff;border-radius:16px;padding:7px 16px;font-size:12px;cursor:pointer;}
+
+  .me-card{margin:6px 18px 0;background:linear-gradient(120deg,#7A5640,#4A2F20);border-radius:20px;padding:22px;color:#fff;display:flex;align-items:center;gap:14px;}
+  .avatar{width:58px;height:58px;border-radius:50%;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-size:26px;}
+  .me-list{margin:16px 18px 0;background:var(--paper);border:1px solid var(--line);border-radius:16px;overflow:hidden;}
+  .me-row{padding:16px 18px;font-size:14px;display:flex;justify-content:space-between;border-bottom:1px solid var(--line);cursor:pointer;}
+  .me-row:last-child{border:none;} .me-row span:last-child{color:var(--muted);}
+
+  /* ===== 成功页 ===== */
+  #success{align-items:center;justify-content:center;background:var(--paper);padding:30px;text-align:center;}
+  .check{width:104px;height:104px;border-radius:50%;background:#E9F6EF;display:flex;align-items:center;justify-content:center;margin-bottom:26px;}
+  .check svg{stroke-dasharray:60;stroke-dashoffset:60;}
+  #success.show .check svg{animation:draw .55s .15s ease forwards;}
+  @keyframes draw{to{stroke-dashoffset:0;}}
+  #success h2{font-size:22px;}
+  #success p{font-size:13px;color:var(--muted);margin-top:10px;line-height:1.7;}
+  .success-actions{margin-top:36px;width:100%;display:flex;flex-direction:column;gap:12px;}
+  .ghost-btn{border:1.5px solid var(--coffee);color:var(--coffee);background:#fff;border-radius:26px;padding:14px;font-size:15px;cursor:pointer;width:100%;}
+
+  /* ===== 底部 Tab ===== */
+  .tabbar{position:absolute;left:0;right:0;bottom:0;height:78px;background:rgba(255,253,249,.96);border-top:1px solid var(--line);
+    display:flex;z-index:30;backdrop-filter:blur(8px);padding-bottom:12px;}
+  .tab{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:10.5px;color:var(--muted);cursor:pointer;border:none;background:none;}
+  .tab.on{color:var(--coffee);font-weight:600;}
+  .tab .cart-badge{position:absolute;top:10px;background:var(--accent);color:#fff;font-size:9px;min-width:16px;height:16px;border-radius:8px;display:none;align-items:center;justify-content:center;padding:0 4px;transform:translateX(12px);}
+  .tab .cart-badge.show{display:flex;}
+  @keyframes bump{0%{transform:translateX(12px) scale(1);}40%{transform:translateX(12px) scale(1.35);}100%{transform:translateX(12px) scale(1);}}
+  .tab .cart-badge.bump{animation:bump .35s;}
+
+  /* ===== 底部弹层 ===== */
+  .mask{position:absolute;inset:0;background:rgba(40,30,22,.45);opacity:0;pointer-events:none;transition:opacity .3s;z-index:40;}
+  .mask.show{opacity:1;pointer-events:auto;}
+  .sheet{position:absolute;left:0;right:0;bottom:0;background:#fff;border-radius:24px 24px 0 0;z-index:41;
+    transform:translateY(102%);transition:transform .38s cubic-bezier(.32,.72,.24,1);padding:22px 20px 34px;}
+  .sheet.show{transform:none;}
+  .sheet h3{font-size:17px;}
+  .pay-row{display:flex;align-items:center;gap:12px;padding:15px 2px;border-bottom:1px solid var(--line);font-size:14px;cursor:pointer;}
+  .pay-row:last-of-type{border:none;}
+  .radio{margin-left:auto;width:20px;height:20px;border-radius:50%;border:2px solid var(--line);}
+  .pay-row.on .radio{border-color:var(--coffee);background:radial-gradient(circle,var(--coffee) 45%,#fff 52%);}
+  .pay-amount{text-align:center;font-size:13px;color:var(--muted);margin:6px 0 14px;}
+  .pay-amount b{font-size:26px;color:var(--accent-deep);}
+
+  /* ===== Toast ===== */
+  .toast{position:absolute;top:50%;left:50%;transform:translate(-50%,-40%) scale(.9);background:rgba(43,33,24,.92);color:#fff;
+    font-size:13px;padding:12px 20px;border-radius:14px;z-index:80;opacity:0;pointer-events:none;transition:all .25s;display:flex;gap:8px;align-items:center;}
+  .toast.show{opacity:1;transform:translate(-50%,-50%) scale(1);}
+
+  /* ===== 两侧 Figma 风格面板 ===== */
+  .side{width:230px;flex:none;color:#C9BDB0;font-size:13px;max-height:820px;}
+  .side h6{font-size:11px;letter-spacing:2px;color:#8A7D6F;text-transform:uppercase;margin-bottom:12px;font-weight:600;}
+  .flow-item{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:10px;cursor:pointer;margin-bottom:3px;transition:background .15s,color .15s;}
+  .flow-item:hover{background:rgba(255,255,255,.07);color:#fff;}
+  .flow-item.on{background:rgba(200,121,65,.22);color:#fff;}
+  .flow-item .dot{width:8px;height:8px;border-radius:3px;background:#6f655a;flex:none;}
+  .flow-item.on .dot{background:var(--accent);}
+  .flow-item .fi-name{flex:1;}
+  .flow-item .fi-tag{font-size:10px;color:#8A7D6F;}
+  .flow-link{margin-left:13px;width:1px;height:9px;background:#554C43;}
+  .inspect{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:18px;}
+  .inspect h6{margin-bottom:10px;}
+  .inspect .frame-name{color:#fff;font-size:15px;font-weight:600;margin-bottom:2px;}
+  .inspect .frame-id{font-size:11px;color:#8A7D6F;margin-bottom:14px;}
+  .inspect ul{list-style:none;display:flex;flex-direction:column;gap:9px;}
+  .inspect li{font-size:12px;line-height:1.55;color:#BDAFA0;display:flex;gap:8px;}
+  .inspect li b{color:#D98E57;font-weight:600;flex:none;}
+  .replay{margin-top:16px;width:100%;background:#3A332D;color:#D8CCBE;border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:10px;font-size:12px;cursor:pointer;}
+  .replay:hover{background:#463E36;color:#fff;}
+
+  @media (max-width:1000px){ .side{display:none;} }
+  @media (max-width:480px){
+    body{padding:0;background:#000;}
+    .phone{width:100vw;height:100vh;border-radius:0;padding:0;box-shadow:none;}
+    .screen-wrap{border-radius:0;} .notch{display:none;}
+  }
+</style>
+</head>
+<body>
+
+<!-- 左侧：Figma 风格「页面 / 流程」面板 -->
+<aside class="side">
+  <h6>Prototype Flow</h6>
+  <div id="flowMap"></div>
+</aside>
+
+<div class="phone">
+  <div class="notch"></div>
+  <div class="screen-wrap">
+
+    <!-- ① 启动页 -->
+    <section class="screen init" id="splash">
+      <div class="splash-logo">
+        <svg width="52" height="52" viewBox="0 0 24 24" fill="none"><path d="M4 8h13v5a6 6 0 0 1-6 6H9a5 5 0 0 1-5-5V8Z" stroke="#fff" stroke-width="1.6" stroke-linejoin="round"/><path d="M17 9h2.5a2.5 2.5 0 0 1 0 5H17" stroke="#fff" stroke-width="1.6"/><path d="M7 3c0 1.2 1 1.2 1 2.4S7 6.6 7 8M11 3c0 1.2 1 1.2 1 2.4S11 6.6 11 8" stroke="#fff" stroke-width="1.4" stroke-linecap="round"/></svg>
+      </div>
+      <div class="splash-name">星度咖啡</div>
+      <div class="splash-sub">STAR DEGREE</div>
+      <div class="splash-hint">点击任意处跳过</div>
+      <div class="splash-bar"><i></i></div>
+    </section>
+
+    <!-- ② 首页 -->
+    <section class="screen" id="home">
+      <div class="statusbar"><span>9:41</span><span class="sb-r">●●● 5G ▮</span></div>
+      <div class="home-head">
+        <div class="loc">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M12 21s7-6.3 7-11a7 7 0 1 0-14 0c0 4.7 7 11 7 11Z" stroke="#9A8B7A" stroke-width="2"/><circle cx="12" cy="10" r="2.5" stroke="#9A8B7A" stroke-width="2"/></svg>
+          自取门店<b>星度咖啡 · 万象城店</b>
+        </div>
+        <div class="search">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="#9A8B7A" stroke-width="2"/><path d="m20 20-3.2-3.2" stroke="#9A8B7A" stroke-width="2" stroke-linecap="round"/></svg>
+          搜索想喝的咖啡
+        </div>
+      </div>
+      <div class="scroll">
+        <div class="banner">
+          <h3>秋日限定 · 生椰系列</h3>
+          <p>第二杯半价，椰香与咖啡的午后</p>
+          <span class="tag">10.10 - 10.31</span>
+          <svg class="bean" width="120" height="120" viewBox="0 0 24 24" fill="#fff"><path d="M5 12c0-5 3-9 7-9 3 0 4 2 4 5M19 12c0 5-3 9-7 9-3 0-4-2-4-5" stroke="#fff" stroke-width="1.4"/><path d="M12 3c0 5 0 13 0 18" stroke="#fff" stroke-width="1.4"/></svg>
+        </div>
+        <div class="cats" id="cats">
+          <button class="chip on">推荐</button>
+          <button class="chip">拿铁</button>
+          <button class="chip">美式</button>
+          <button class="chip">特调</button>
+          <button class="chip">不含咖啡</button>
+        </div>
+        <div class="sec-title">今日推荐</div>
+        <div class="p-list" id="pList"></div>
+      </div>
+      <nav class="tabbar">
+        <button class="tab on" data-tab="home">
+          <svg width="21" height="21" viewBox="0 0 24 24" fill="none"><path d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-4v-6h-6v6H5a1 1 0 0 1-1-1v-9.5Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>
+          首页
+        </button>
+        <button class="tab" data-tab="orders">
+          <svg width="21" height="21" viewBox="0 0 24 24" fill="none"><path d="M6 4h12v17l-3-2-3 2-3-2-3 2V4Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M9 9h6M9 13h6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+          订单
+        </button>
+        <button class="tab" data-tab="cart-tab">
+          <span class="cart-badge" id="badgeHome">0</span>
+          <svg width="21" height="21" viewBox="0 0 24 24" fill="none"><circle cx="9" cy="20" r="1.6" stroke="currentColor" stroke-width="1.6"/><circle cx="17" cy="20" r="1.6" stroke="currentColor" stroke-width="1.6"/><path d="M3 4h2l2.2 11.2a1.5 1.5 0 0 0 1.5 1.2h7.6a1.5 1.5 0 0 0 1.5-1.2L20 8H6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          购物袋
+        </button>
+        <button class="tab" data-tab="me">
+          <svg width="21" height="21" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8" r="3.6" stroke="currentColor" stroke-width="1.7"/><path d="M5 20c.8-3.4 3.6-5 7-5s6.2 1.6 7 5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+          我的
+        </button>
+      </nav>
+    </section>
+
+    <!-- ③ 商品详情 -->
+    <section class="screen" id="detail">
+      <div class="scroll">
+        <div class="detail-hero" id="dHero">
+          <button class="back-btn" onclick="back()">‹</button>
+        </div>
+        <div class="detail-body">
+          <h2 id="dName"></h2>
+          <p class="d-sub" id="dDesc"></p>
+          <div class="opt-block">
+            <div class="ob-t">杯型 <span id="dSizePrice" style="color:var(--muted);font-weight:400;font-size:12px;"></span></div>
+            <div class="opt-row" id="sizeRow">
+              <button class="opt on" data-v="中杯">中杯 360ml</button>
+              <button class="opt" data-v="大杯">大杯 473ml +¥4</button>
+            </div>
+          </div>
+          <div class="opt-block">
+            <div class="ob-t">温度</div>
+            <div class="opt-row" id="tempRow">
+              <button class="opt on" data-v="热">热</button>
+              <button class="opt" data-v="少冰">少冰</button>
+              <button class="opt" data-v="去冰">去冰</button>
+            </div>
+          </div>
+          <div class="opt-block">
+            <div class="ob-t">糖度</div>
+            <div class="opt-row" id="sugarRow">
+              <button class="opt on" data-v="标准糖">标准糖</button>
+              <button class="opt" data-v="半糖">半糖</button>
+              <button class="opt" data-v="无糖">无糖</button>
+            </div>
+          </div>
+          <div class="qty-row">
+            <button class="qty-btn" onclick="changeQty(-1)">−</button>
+            <span class="qty-num" id="qtyNum">1</span>
+            <button class="qty-btn" onclick="changeQty(1)">＋</button>
+          </div>
+        </div>
+      </div>
+      <div class="detail-bar">
+        <span class="total" id="dTotal"></span>
+        <button class="btn-primary" onclick="addToCart()">加入购物袋</button>
+      </div>
+    </section>
+
+    <!-- ④ 购物车 -->
+    <section class="screen" id="cart">
+      <div class="statusbar"><span>9:41</span><span class="sb-r">●●● 5G ▮</span></div>
+      <div class="page-head">购物袋</div>
+      <div class="scroll">
+        <div class="cart-list" id="cartList"></div>
+      </div>
+      <div class="checkout-bar">
+        <div class="sum"><div class="t" id="cartTotal">¥0</div><div class="s" id="cartCount">还没有商品</div></div>
+        <button class="btn-primary" id="payBtn" onclick="openPay()">去结算</button>
+      </div>
+    </section>
+
+    <!-- ⑤ 支付成功 -->
+    <section class="screen" id="success">
+      <div class="check">
+        <svg width="52" height="52" viewBox="0 0 24 24" fill="none"><path d="m5 12.5 4.5 4.5L19 7.5" stroke="#3E9E6E" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <h2>下单成功</h2>
+      <p>咖啡师正在为你制作<br>预计 8 分钟后可取餐，请留意叫号</p>
+      <div class="success-actions">
+        <button class="btn-primary" onclick="go('orders')">查看订单</button>
+        <button class="ghost-btn" onclick="go('home')">再逛逛</button>
+      </div>
+    </section>
+
+    <!-- ⑥ 订单列表 -->
+    <section class="screen" id="orders">
+      <div class="statusbar"><span>9:41</span><span class="sb-r">●●● 5G ▮</span></div>
+      <div class="page-head">我的订单</div>
+      <div class="scroll" style="padding-bottom:100px;" id="orderList"></div>
+      <nav class="tabbar">
+        <button class="tab" data-tab="home">首页</button>
+        <button class="tab on" data-tab="orders">订单</button>
+        <button class="tab" data-tab="cart-tab"><span class="cart-badge" id="badgeOrders">0</span>购物袋</button>
+        <button class="tab" data-tab="me">我的</button>
+      </nav>
+    </section>
+
+    <!-- ⑦ 我的 -->
+    <section class="screen" id="me">
+      <div class="statusbar"><span>9:41</span><span class="sb-r">●●● 5G ▮</span></div>
+      <div class="page-head">我的</div>
+      <div class="scroll" style="padding-bottom:100px;">
+        <div class="me-card">
+          <div class="avatar">🦊</div>
+          <div><div style="font-size:17px;font-weight:600;">咖啡续命官</div><div style="font-size:12px;opacity:.75;margin-top:4px;">金星会员 · 已省 ¥128</div></div>
+        </div>
+        <div class="me-list">
+          <div class="me-row"><span>我的券包</span><span>3 张 ›</span></div>
+          <div class="me-row"><span>收货地址</span><span>›</span></div>
+          <div class="me-row"><span>开发票</span><span>›</span></div>
+          <div class="me-row"><span>联系客服</span><span>›</span></div>
+          <div class="me-row"><span>设置</span><span>›</span></div>
+        </div>
+      </div>
+      <nav class="tabbar">
+        <button class="tab" data-tab="home">首页</button>
+        <button class="tab" data-tab="orders">订单</button>
+        <button class="tab" data-tab="cart-tab"><span class="cart-badge" id="badgeMe">0</span>购物袋</button>
+        <button class="tab on" data-tab="me">我的</button>
+      </nav>
+    </section>
+
+    <!-- 支付方式底部弹层 -->
+    <div class="mask" id="mask" onclick="closePay()"></div>
+    <div class="sheet" id="paySheet">
+      <h3>选择支付方式</h3>
+      <div class="pay-amount">支付金额 <b id="payAmount">¥0</b></div>
+      <div class="pay-row on" data-pay="微信支付"><span>🟢</span>微信支付<span class="radio"></span></div>
+      <div class="pay-row" data-pay="支付宝"><span>🔵</span>支付宝<span class="radio"></span></div>
+      <div class="pay-row" data-pay="星度余额（¥86.50）"><span>☕</span>星度余额<span class="radio"></span></div>
+      <button class="btn-primary" style="margin-top:18px;" onclick="confirmPay()">确认支付</button>
+    </div>
+
+    <div class="toast" id="toast"></div>
+  </div>
+</div>
+
+<!-- 右侧：Figma 风格「交互检查」面板 -->
+<aside class="side inspect">
+  <h6>Prototype Inspector</h6>
+  <div class="frame-name" id="insName">启动页</div>
+  <div class="frame-id" id="insId">Frame · splash</div>
+  <ul id="insHints"></ul>
+  <button class="replay" onclick="replay()">↺ 重新播放原型</button>
+</aside>
+
+<script>
+/* ================= 数据 ================= */
+const PRODUCTS = [
+  {id:'latte', name:'生椰拿铁', price:21, color:'linear-gradient(135deg,#D8B48E,#B98A5C)',
+   desc:'甄选意式浓缩与生椰乳融合，椰香浓郁、口感顺滑，秋日人气 TOP1。'},
+  {id:'americano', name:'经典美式', price:15, color:'linear-gradient(135deg,#8A6244,#5C3E27)',
+   desc:'双份意式萃取，纯粹焦香，醒神必备，可免费加一份浓缩。'},
+  {id:'oat', name:'燕麦丝绒拿铁', price:24, color:'linear-gradient(135deg,#E3CDB2,#C8A880)',
+   desc:'OATLY 燕麦奶与浓缩咖啡，植物基绵密奶泡，乳糖不耐友好。'},
+];
+
+/* 页面元信息：流程面板 + 右侧交互说明 */
+const FRAMES = {
+  splash:  {name:'启动页', tag:'1.2s', hints:[['自动','延时 1.2s 自动跳转首页'],['点击','任意处可跳过开屏']]},
+  home:    {name:'首页', tag:'tab', hints:[['卡片','点击商品进入详情页（右滑转入场）'],['＋','圆形按钮直接加购并弹出 Toast'],['Tab','底部 4 个 Tab 切换主页面'],['Chip','顶部分类可选中切换']]},
+  detail:  {name:'商品详情', hints:[['规格','杯型 / 温度 / 糖度单选，价格联动'],['数量','步进器控制购买数量'],['‹','左上角返回上一页'],['按钮','加入购物袋，角标跳动 +1']]},
+  cart:    {name:'购物袋', tag:'sheet', hints:[['步进器','修改数量或删除商品'],['去结算','向上拉出支付方式弹层']]},
+  success: {name:'支付成功', hints:[['动效','对勾 SVG 描边绘制动画'],['跳转','查看订单 / 再逛逛']]},
+  orders:  {name:'订单列表', hints:[['状态','制作中 / 已完成两种状态'],['再来一单','将商品重新加入购物袋']]},
+  me:      {name:'我的', hints:[['入口','个人信息、券包、设置等列表']]},
+};
+
+/* ================= 状态 ================= */
+let stack = ['splash'];          // 页面栈
+let current = 'splash';
+let cart = [];                   // {key,id,name,spec,unit,qty}
+let curProduct = null, qty = 1;
+let orders = [                   // 预置历史订单
+  {no:'20261013088', items:'燕麦丝绒拿铁 ×1', sum:24, status:'已完成', making:false, color:PRODUCTS[2].color},
+  {no:'20261011021', items:'经典美式 ×2', sum:30, status:'已完成', making:false, color:PRODUCTS[1].color},
+];
+
+const $ = id => document.getElementById(id);
+
+/* ================= 页面路由（模拟 Figma 的 Slide 转场） ================= */
+function go(name, push=true){
+  if(push && stack[stack.length-1] !== name) stack.push(name);
+  document.querySelectorAll('.screen').forEach(s=>{
+    s.classList.remove('active','behind','init');
+  });
+  const from = $(current), to = $(name);
+  to.classList.add('active');
+  if(from && from !== to) from.classList.add('behind');
+  // success 进入时重播对勾动画
+  to.classList.remove('show'); void to.offsetWidth; if(name==='success') to.classList.add('show');
+  current = name;
+  syncPanels();
+}
+function back(){ if(stack.length > 1){ stack.pop(); go(stack[stack.length-1], false); } }
+
+/* ================= 首页渲染 ================= */
+function renderProducts(){
+  $('pList').innerHTML = PRODUCTS.map(p=>`
+    <div class="p-card" onclick="openDetail('${p.id}')">
+      <div class="p-img" style="background:${p.color}">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none"><path d="M4 8h13v5a6 6 0 0 1-6 6H9a5 5 0 0 1-5-5V8Z" stroke="#fff" stroke-width="1.5"/><path d="M17 9h2.5a2.5 2.5 0 0 1 0 5H17" stroke="#fff" stroke-width="1.5"/></svg>
+      </div>
+      <div class="p-info">
+        <h4>${p.name}</h4>
+        <div class="desc">${p.desc.slice(0,18)}…</div>
+        <div class="p-bottom">
+          <span class="price"><small>¥</small>${p.price}</span>
+          <button class="add" onclick="event.stopPropagation();quickAdd('${p.id}')">＋</button>
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+/* ================= 详情页 ================= */
+function openDetail(id){
+  curProduct = PRODUCTS.find(p=>p.id===id); qty = 1;
+  $('dName').textContent = curProduct.name;
+  $('dDesc').textContent = curProduct.desc;
+  $('dHero').style.background = curProduct.color;
+  $('dHero').innerHTML = `<button class="back-btn" onclick="back()">‹</button>
+    <svg width="120" height="120" viewBox="0 0 24 24" fill="none" style="opacity:.9"><path d="M4 8h13v5a6 6 0 0 1-6 6H9a5 5 0 0 1-5-5V8Z" stroke="#fff" stroke-width="1.2"/><path d="M17 9h2.5a2.5 2.5 0 0 1 0 5H17" stroke="#fff" stroke-width="1.2"/><path d="M8 3.5c.8 1 0 1.6.4 2.6M11.5 3.5c.8 1 0 1.6.4 2.6" stroke="#fff" stroke-width="1" stroke-linecap="round"/></svg>`;
+  document.querySelectorAll('#sizeRow .opt,#tempRow .opt,#sugarRow .opt').forEach(o=>o.classList.remove('on'));
+  document.querySelectorAll('#sizeRow .opt')[0].classList.add('on');
+  document.querySelectorAll('#tempRow .opt')[0].classList.add('on');
+  document.querySelectorAll('#sugarRow .opt')[0].classList.add('on');
+  $('qtyNum').textContent = 1;
+  updateDetailTotal();
+  go('detail');
+}
+function unitPrice(){
+  const big = document.querySelector('#sizeRow .on').dataset.v === '大杯';
+  return curProduct.price + (big ? 4 : 0);
+}
+function updateDetailTotal(){
+  $('dSizePrice').textContent = '';
+  $('dTotal').textContent = '¥' + unitPrice()*qty;
+}
+function changeQty(d){ qty = Math.max(1, qty+d); $('qtyNum').textContent = qty; updateDetailTotal(); }
+document.querySelectorAll('#sizeRow,#tempRow,#sugarRow').forEach(row=>{
+  row.addEventListener('click', e=>{
+    const btn = e.target.closest('.opt'); if(!btn) return;
+    row.querySelectorAll('.opt').forEach(o=>o.classList.remove('on'));
+    btn.classList.add('on'); updateDetailTotal();
+  });
+});
+
+/* ================= 购物车 ================= */
+function specOf(){
+  const s = document.querySelector('#sizeRow .on').dataset.v;
+  const t = document.querySelector('#tempRow .on').dataset.v;
+  const g = document.querySelector('#sugarRow .on').dataset.v;
+  return `${s} / ${t} / ${g}`;
+}
+function pushCart(id, spec, q){
+  const p = PRODUCTS.find(x=>x.id===id);
+  const key = id+'|'+spec;
+  const found = cart.find(c=>c.key===key);
+  if(found) found.qty += q; else cart.push({key, id, name:p.name, spec, unit:p.price + (spec.includes('大杯')?4:0), qty:q});
+  renderCart(); bumpBadges();
+}
+function quickAdd(id){ pushCart(id, '中杯 / 少冰 / 半糖', 1); showToast('已加入购物袋'); }
+function addToCart(){ pushCart(curProduct.id, specOf(), qty); showToast('已加入购物袋'); back(); }
+
+function cartCount(){ return cart.reduce((n,c)=>n+c.qty,0); }
+function cartSum(){ return cart.reduce((n,c)=>n+c.unit*c.qty,0); }
+function bumpBadges(){
+  ['badgeHome','badgeOrders','badgeMe'].forEach(bid=>{
+    const b=$(bid); b.textContent = cartCount();
+    b.classList.toggle('show', cartCount()>0);
+    b.classList.remove('bump'); void b.offsetWidth; b.classList.add('bump');
+  });
+}
+function renderCart(){
+  const badges = ['badgeHome','badgeOrders','badgeMe'];
+  badges.forEach(bid=>{ const b=$(bid); b.textContent=cartCount(); b.classList.toggle('show',cartCount()>0); });
+  $('cartList').innerHTML = cart.length ? cart.map(c=>`
+    <div class="cart-item">
+      <div class="ci-img" style="background:${PRODUCTS.find(p=>p.id===c.id).color}">☕</div>
+      <div class="ci-info">
+        <h5>${c.name}</h5>
+        <div class="spec">${c.spec}</div>
+        <div class="price" style="margin-top:6px;font-size:14px;"><small>¥</small>${c.unit*c.qty}</div>
+      </div>
+      <div class="stepper">
+        <button onclick="cartStep('${c.key}',-1)">−</button>
+        <span class="n">${c.qty}</span>
+        <button onclick="cartStep('${c.key}',1)">＋</button>
+      </div>
+    </div>`).join('')
+    : `<div class="empty"><div class="big">🛍️</div>购物袋还是空的<br>去挑一杯喜欢的咖啡吧</div>`;
+  $('cartTotal').textContent = '¥' + cartSum();
+  $('cartCount').textContent = cartCount() ? `共 ${cartCount()} 件商品` : '还没有商品';
+  $('payBtn').style.opacity = cart.length ? 1 : .45;
+}
+function cartStep(key,d){
+  const c = cart.find(x=>x.key===key);
+  c.qty += d;
+  if(c.qty<=0) cart = cart.filter(x=>x.key!==key);
+  renderCart();
+}
+
+/* ================= 支付弹层 ================= */
+function openPay(){
+  if(!cart.length){ showToast('购物袋是空的'); return; }
+  $('payAmount').textContent = '¥' + cartSum();
+  $('mask').classList.add('show'); $('paySheet').classList.add('show');
+}
+function closePay(){ $('mask').classList.remove('show'); $('paySheet').classList.remove('show'); }
+document.querySelectorAll('.pay-row').forEach(r=>r.addEventListener('click',()=>{
+  document.querySelectorAll('.pay-row').forEach(x=>x.classList.remove('on'));
+  r.classList.add('on');
+}));
+function confirmPay(){
+  const pay = document.querySelector('.pay-row.on').dataset.pay;
+  const sum = cartSum(), itemsText = cart.map(c=>`${c.name} ×${c.qty}`).join('，');
+  const color = PRODUCTS.find(p=>p.id===cart[0].id).color;
+  orders.unshift({no:'20261014'+String(Math.floor(Math.random()*900)+100), items:itemsText, sum, status:'制作中', making:true, color});
+  cart = []; renderCart(); bumpBadges(); closePay();
+  renderOrders();
+  setTimeout(()=>go('success'), 260);
+}
+
+/* ================= 订单 ================= */
+function renderOrders(){
+  $('orderList').innerHTML = orders.map(o=>`
+    <div class="order-card">
+      <div class="oc-head"><span style="color:var(--muted)">订单号 ${o.no}</span><span class="oc-status ${o.making?'making':''}">${o.status}</span></div>
+      <div class="oc-body">
+        <div class="thumb" style="background:${o.color}">☕</div>
+        <div style="flex:1;"><h5>${o.items}</h5><p>${o.making?'咖啡师正在制作中…':'感谢你的光临，期待下次再见'}</p></div>
+      </div>
+      <div class="oc-foot"><span>实付 <b style="color:var(--accent-deep)">¥${o.sum}</b></span>
+        <button class="again" onclick="reorder('${o.no}')">再来一单</button></div>
+    </div>`).join('');
+}
+function reorder(no){
+  const o = orders.find(x=>x.no===no);
+  pushCart(PRODUCTS.find(p=>o.items.includes(p.name)).id, '中杯 / 少冰 / 半糖', 1);
+  showToast('已加入购物袋'); go('cart');
+}
+
+/* ================= Tab & 杂项 ================= */
+document.querySelectorAll('.tab[data-tab]').forEach(t=>t.addEventListener('click',()=>{
+  const tab = t.dataset.tab;
+  if(tab==='cart-tab'){ go('cart'); } else { stack=[tab]; go(tab,false); }
+}));
+document.getElementById('cats').addEventListener('click',e=>{
+  const c=e.target.closest('.chip'); if(!c)return;
+  document.querySelectorAll('#cats .chip').forEach(x=>x.classList.remove('on'));
+  c.classList.add('on');
+});
+$('splash').addEventListener('click',()=>{ if(current==='splash') go('home'); });
+function showToast(msg){
+  const t=$('toast'); t.textContent='✓ '+msg; t.classList.add('show');
+  clearTimeout(t._timer); t._timer=setTimeout(()=>t.classList.remove('show'),1400);
+}
+function replay(){
+  cart=[]; stack=['splash']; renderCart();
+  go('splash',false);
+  setTimeout(()=>{ if(current==='splash') go('home'); },1200);
+}
+
+/* ================= 两侧面板同步 ================= */
+function syncPanels(){
+  document.querySelectorAll('.flow-item').forEach(f=>f.classList.toggle('on', f.dataset.frame===current));
+  const f = FRAMES[current];
+  $('insName').textContent = f.name;
+  $('insId').textContent = 'Frame · ' + current;
+  $('insHints').innerHTML = f.hints.map(h=>`<li><b>${h[0]}</b><span>${h[1]}</span></li>`).join('');
+}
+function buildFlowMap(){
+  const order = ['splash','home','detail','cart','success','orders','me'];
+  $('flowMap').innerHTML = order.map((k,i)=>`
+    ${i? '<div class="flow-link"></div>':''}
+    <div class="flow-item" data-frame="${k}" onclick="jumpFlow('${k}')">
+      <span class="dot"></span><span class="fi-name">${FRAMES[k].name}</span>
+      <span class="fi-tag">${FRAMES[k].tag||''}</span>
+    </div>`).join('');
+}
+function jumpFlow(k){
+  if(k==='splash'){ replay(); return; }
+  if(k==='cart' && !cart.length) quickAdd('latte');
+  stack = stack.includes(k) ? stack.slice(0, stack.indexOf(k)+1) : stack.concat(k);
+  go(k, false);
+}
+
+/* ================= 初始化：模拟 Figma 原型自动播放 ================= */
+renderProducts(); renderCart(); renderOrders(); buildFlowMap(); syncPanels();
+setTimeout(()=>{ if(current==='splash') go('home'); },1500);
+</script>
+</body>
+</html>
